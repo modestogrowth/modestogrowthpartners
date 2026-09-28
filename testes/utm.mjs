@@ -42,20 +42,30 @@ const abriu = await page.evaluate(async ()=>{ showView('utm'); await new Promise
 ok('2 a aba abre, se identifica, traz a biblioteca de QR embutida e todo id tem prefixo',
    abriu.view==='utm' && abriu.naTela && abriu.titulo==='MGP UTM' && abriu.qrLib==='function' && abriu.idsSoltos===0, JSON.stringify(abriu));
 
-const meta = await page.evaluate(()=>{ const $=id=>document.getElementById('utm-'+id);
+const metaVazio = await page.evaluate(()=>{ const $=id=>document.getElementById('utm-'+id);
   return {canal:$('canal').value, camp:$('campOut').textContent, param:$('mainOut').textContent,
-          sets:[...$('setsOut').querySelectorAll('li span')].map(e=>e.textContent), ads:[...$('adsOut').querySelectorAll('li span')].map(e=>e.textContent)} });
-ok('3 Meta é o padrão, e o nome da campanha sai no formato MGP_ORIGEM_OBJETIVO_UTIL',
-   meta.canal==='meta' && meta.camp==='MGP_META_VENDAS_SEMANA-CLIENTE'
-   && /utm_source=facebook&utm_medium=paid_social&utm_source_platform=\{\{site_source_name\}\}/.test(meta.param)
-   && meta.sets[0]==='ALTO-TICKET_18-65_LAL' && meta.ads[0]==='V01_ANIMADO_VIDEO' && meta.ads[1]==='V02_ANIMADO_VIDEO' && meta.ads[2]==='V01_OFERTA-DIRETA_ESTATICO',
-   JSON.stringify(meta).slice(0,200));
+          medium:$('med').value, medDisabled:$('med').disabled,
+          setsVazio:$('sets').children.length, adsVazio:$('ads').children.length} });
+ok('3 Meta é o padrão, abre sem conjunto nem anúncio de exemplo, e o nome da campanha sai no formato MGP_ORIGEM_OBJETIVO_UTIL',
+   metaVazio.canal==='meta' && metaVazio.camp==='MGP_META_VENDAS_SEMANA-CLIENTE'
+   && metaVazio.param==='utm_source={{site_source_name}}&utm_medium=paid-social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_id={{campaign.id}}'
+   && metaVazio.medium==='paid-social' && metaVazio.medDisabled
+   && metaVazio.setsVazio===0 && metaVazio.adsVazio===0,
+   JSON.stringify(metaVazio).slice(0,260));
 
 const combos = await page.evaluate(()=>{ const $=id=>document.getElementById('utm-'+id);
   $('url').value='https://www.cliente.com.br/oferta'; $('url').dispatchEvent(new Event('input'));
+  $('addSet').click();
+  const pub=$('sets').querySelector('.row:last-child input'); pub.value='alto ticket'; pub.dispatchEvent(new Event('input',{bubbles:true}));
+  $('addAd').click();
+  const tipo=$('ads').querySelector('.row:last-child input[data-k]'); tipo.value='animado'; tipo.dispatchEvent(new Event('input',{bubbles:true}));
   const linhas=[...$('tbl').querySelectorAll('tbody tr')];
-  return {n:linhas.length, primeira: linhas[0] ? linhas[0].querySelector('td.url').textContent : '', hint:$('urlHint').textContent} });
-ok('4 com a URL, a tabela traz uma linha por conjunto × anúncio, com macro', combos.n===6 && /\?utm_source=facebook/.test(combos.primeira) && combos.hint==='OK.', JSON.stringify(combos).slice(0,200));
+  return {n:linhas.length, primeira: linhas[0] ? linhas[0].querySelector('td.url').textContent : '', hint:$('urlHint').textContent,
+          setNome:$('setsOut').querySelector('li span').textContent, adNome:$('adsOut').querySelector('li span').textContent} });
+ok('4 com a URL e um conjunto e um anúncio adicionados, a tabela traz uma linha por conjunto × anúncio, com macro',
+   combos.n===1 && /\?utm_source=\{\{site_source_name\}\}/.test(combos.primeira) && combos.hint==='OK.'
+   && combos.setNome==='ALTO-TICKET_18-65_AMPLO' && combos.adNome==='V01_ANIMADO_VIDEO',
+   JSON.stringify(combos).slice(0,260));
 
 const flyer = await page.evaluate(async ()=>{ const $=id=>document.getElementById('utm-'+id);
   $('canal').value='flyer'; $('canal').dispatchEvent(new Event('change'));

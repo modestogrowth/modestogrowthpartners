@@ -1018,6 +1018,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let ME = null;                 // { id, email, name, role, client_id }
 let CLIENTS = [];              // [{id, nome}]
 let TASKS = [];                // linhas de tasks (já filtradas por RLS)
+let TASK_TIPOS = [];           // catálogo de tarefas fixas [{id, nome, ordem}]
 let VIEW = 'dashboard';
 let DETAIL_ID = null;
 let calRef = new Date();
@@ -1245,6 +1246,10 @@ async function loadClients(){
   CLIENTS=data||[];
   buildClientColors();
 }
+async function loadTaskTipos(){
+  const {data}=await sb.from('task_tipos').select('*').order('ordem').order('nome');
+  TASK_TIPOS=data||[];
+}
 async function loadTasks(){
   let q=sb.from('tasks').select('*').order('position',{ascending:true}).order('created_at',{ascending:false});
   const {data,error}=await q;
@@ -1263,7 +1268,7 @@ function buildAssigneeOptions(){
   TASKS.forEach(t=>(t.assignees||[]).forEach(a=>{if(a&&!m.has(a.toLowerCase()))m.set(a.toLowerCase(),a);}));
   ASSIGNEE_OPTS=[...m.values()].sort((a,b)=>a.localeCompare(b,'pt'));
 }
-async function loadData(){await Promise.all([loadClients(),loadTasks(),loadTeam()]);buildAssigneeOptions();}
+async function loadData(){await Promise.all([loadClients(),loadTasks(),loadTeam(),loadTaskTipos()]);buildAssigneeOptions();}
 async function refresh(){await loadTasks();buildNotifs();updateNotifBadge();render();if(DETAIL_ID)renderDetailBody();}
 
 /* filtro/busca aplicado no client-side */
@@ -1532,7 +1537,7 @@ function taskCard(t,accent){
       ${isAdmin()?`draggable="true" ondragstart="dragStart(event,'${escJS(t.id)}')" ondragend="this.classList.remove('dragging')"`:''}
       onclick="openDetail('${escJS(t.id)}')">
     <div class="card-strip" style="background:${clientColor(t.client_id)}"></div>
-    <div class="tt">${esc(t.title)}</div>
+    <div class="tt">${t.tipo?`<span class="mg-tipo-tag">${esc(t.tipo)}</span> `:''}${esc(t.title)}</div>
     <div class="card-meta">
       <span class="cbadge" style="display:inline-flex;align-items:center;gap:5px;background:${hexA(clientColor(t.client_id),0.18)};color:${clientColor(t.client_id)};border:1px solid ${hexA(clientColor(t.client_id),0.4)}">${clientLogo(t.client_id)?`<img src="${mgUrlImagem(clientLogo(t.client_id))}" style="width:15px;height:15px;border-radius:3px;object-fit:contain;background:#fff">`:""}${esc(clientName(t.client_id))}</span>
       ${t.owner_id?`<span class="cbadge mg-owner" title="Owner: ${esc(mgOwnerNome(t.owner_id))}">★ ${esc(firstName(mgOwnerNome(t.owner_id)))}</span>`:''}
@@ -1618,7 +1623,7 @@ function renderList(){
       const stLabel=isAdmin()?t.status:clientStatus(t.status);
       const stCol=isAdmin()?colColor(t.status):(CLIENT_COLS.find(c=>c.key===clientStatus(t.status))||{}).color;
       return `<tr onclick="openDetail('${escJS(t.id)}')">
-        <td style="font-weight:600;max-width:340px">${esc(t.title)}</td>
+        <td style="font-weight:600;max-width:340px">${t.tipo?`<span class="mg-tipo-tag">${esc(t.tipo)}</span> `:''}${esc(t.title)}</td>
         <td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:2px;background:${clientColor(t.client_id)}"></span>${esc(clientName(t.client_id))}</span></td>
         <td><span class="badge" style="background:rgba(194,161,91,.10);color:${stCol}"><span class="d" style="background:${stCol}"></span>${esc(stLabel)}</span></td>
         <td><span class="prio ${t.priority}">${t.priority}</span></td>
@@ -1693,6 +1698,7 @@ function renderDetailBody(){
     <div class="slide-h">
       <div class="st-line">
         <div style="margin-bottom:9px">${clientChipHTML(t.client_id,true)}</div>
+        ${t.tipo?`<div style="margin-bottom:4px"><span class="mg-tipo-tag">${esc(t.tipo)}</span></div>`:''}
         ${admin?`<textarea class="fld" id="d-title" rows="1" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-family:var(--font-d);font-size:27px;font-weight:600;line-height:1.15;min-height:auto;border:0;background:transparent;padding:0;resize:none;overflow:hidden">${esc(t.title)}</textarea>`
                 :`<h2 style="font-size:27px">${esc(t.title)}</h2>`}
       </div>
@@ -1700,6 +1706,7 @@ function renderDetailBody(){
     </div>
     <div class="slide-b">
       <div class="frow"><span class="fl">Status</span>${statusField}</div>
+      <div class="frow"><span class="fl">Tarefa fixa</span>${admin?`<select class="fld" id="d-tipo" onchange="quickField('tipo',this.value)"><option value="">— nenhuma —</option>${TASK_TIPOS.map(x=>`<option value="${esc(x.nome)}" ${t.tipo===x.nome?'selected':''}>${esc(x.nome)}</option>`).join('')}</select>`:(t.tipo?`<span class="mg-tipo-tag">${esc(t.tipo)}</span>`:'<span>—</span>')}</div>
       <div class="frow"><span class="fl">Prioridade</span>${admin?`<select class="fld" id="d-prio">${['Alta','Média','Baixa'].map(p=>`<option ${p===t.priority?'selected':''}>${p}</option>`).join('')}</select>`:`<span class="prio ${t.priority}">${t.priority}</span>`}</div>
       <div class="frow"><span class="fl">Owner</span>${admin?`<select class="fld" id="d-owner">${mgOwnerOpcoes(t.owner_id)}</select>`:`<span>${esc(mgOwnerNome(t.owner_id)||'—')}</span>`}</div>
       <div class="frow" style="align-items:flex-start"><span class="fl">Responsáveis</span>${admin?`<div class="mg-resp-host">${assigneePickerHTML()}</div>`:`<span>${(t.assignees||[]).join(', ')||'—'}</span>`}</div>
@@ -1808,6 +1815,13 @@ async function saveDetail(){
 async function quickField(field,value){
   const t=TASKS.find(x=>x.id===DETAIL_ID);if(!t)return;
   if(field==='status'){await changeStatus(t,value);}
+  else if(field==='tipo'){
+    const patch={tipo:value||null};
+    const {error}=await sb.from('tasks').update(patch).eq('id',t.id);
+    if(error){toast('Erro ao salvar o tipo');console.error(error);return}
+    Object.assign(t,patch);
+    try{render()}catch(_){}
+  }
 }
 async function changeStatus(t,status){
   const becameDone=DONE_STATUSES.includes(status)&&!DONE_STATUSES.includes(t.status);
@@ -1861,6 +1875,7 @@ function openTaskModal(id=null,status=null){
   $('tmodal-c').innerHTML=`
     <h2>${t?'Editar demanda':'Nova demanda'}</h2>
     <div style="font-size:12px;color:var(--muted)">Preencha os dados da demanda.</div>
+    <label>Tarefa fixa (opcional)</label><select class="fld" id="m-tipo"><option value="">— nenhuma —</option>${TASK_TIPOS.map(x=>`<option value="${esc(x.nome)}" ${t&&t.tipo===x.nome?'selected':''}>${esc(x.nome)}</option>`).join('')}</select>
     <label>Título</label><input class="fld" id="m-title" value="${t?esc(t.title):''}" placeholder="Ex.: Subir campanha Meta Ads">
     <label>Cliente</label><select class="fld" id="m-client">${CLIENTS.map(c=>`<option value="${c.id}" ${t&&t.client_id===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -1911,6 +1926,7 @@ function mgPintarAnexosNovos(){
 async function saveTask(id){
   const payload={
     title:$('m-title').value.trim(),
+    tipo:$('m-tipo').value||null,
     client_id:$('m-client').value,
     status:$('m-status').value,
     priority:$('m-prio').value,
@@ -5823,6 +5839,7 @@ const MG_PREF_ABAS = [
   {id:'lidas',    ic:'✓', nome:'Marcar como lida', grupo:'Preferências'},
   {id:'acess',    ic:'◍', nome:'Acessibilidade',   grupo:'Preferências'},
   {id:'avanc',    ic:'⚙', nome:'Avançado',         grupo:'Preferências'},
+  {id:'tipos',    ic:'🏷', nome:'Tarefas fixas',    grupo:'Preferências'},
   {id:'sessao',   ic:'⏻', nome:'Sessão',           grupo:'Conta'},
 ];
 let MG_PREF_ABA = 'perfil';
@@ -5999,8 +6016,39 @@ function mgPrefConteudo(aba){
     <h3>Sessão</h3>
     <div class="sub">Encerra o acesso neste computador. Você precisará entrar de novo.</div>
     <button class="mini-btn" style="color:var(--danger);border-color:rgba(184,74,62,.4)" onclick="fecharConfig();signOut()">Sair da conta</button>`;
+
+  case 'tipos': return `
+    <h3>Tarefas fixas</h3>
+    <div class="sub">Categorias que aparecem antes do nome da demanda ao criar (ex.: "UTM", "Otimização"). Editar ou excluir aqui não muda o rótulo já salvo nas demandas existentes.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px"><input class="fld" id="tipo-new" placeholder="Nome da tarefa fixa" onkeydown="if(event.key==='Enter')addTaskTipo()"><button class="mini-btn" onclick="addTaskTipo()">Criar</button></div>
+    <div class="clist">
+      ${TASK_TIPOS.map(x=>`<div class="crow">
+        <span class="nm">${esc(x.nome)}</span>
+        <button class="mini-btn ghost" onclick="renameTaskTipo('${escJS(x.id)}','${escJS(x.nome)}')">Renomear</button>
+        <button class="mini-btn ghost" style="color:var(--danger)" onclick="deleteTaskTipo('${escJS(x.id)}','${escJS(x.nome)}')">Excluir</button>
+      </div>`).join('') || '<div class="empty" style="padding:14px">Nenhuma tarefa fixa cadastrada.</div>'}
+    </div>`;
   }
   return '';
+}
+async function addTaskTipo(){
+  const nome=$('tipo-new').value.trim();if(!nome)return;
+  const ordem=TASK_TIPOS.length?Math.max(...TASK_TIPOS.map(x=>x.ordem||0))+1:1;
+  const {error}=await sb.from('task_tipos').insert({nome,ordem});
+  if(error){toast('Erro ao criar (talvez já exista esse nome)');console.error(error);return}
+  await loadTaskTipos();mgDesenhaPref();toast('Tarefa fixa criada');
+}
+async function renameTaskTipo(id,cur){
+  const nome=prompt('Novo nome da tarefa fixa:',cur);if(!nome||!nome.trim())return;
+  const {error}=await sb.from('task_tipos').update({nome:nome.trim()}).eq('id',id);
+  if(error){toast('Erro ao renomear');console.error(error);return}
+  await loadTaskTipos();mgDesenhaPref();toast('Tarefa fixa atualizada');
+}
+async function deleteTaskTipo(id,nome){
+  if(!confirm('Excluir "'+nome+'"? Demandas que já usam esse rótulo continuam mostrando; só sai da lista de opções.'))return;
+  const {error}=await sb.from('task_tipos').delete().eq('id',id);
+  if(error){toast('Erro ao excluir');console.error(error);return}
+  await loadTaskTipos();mgDesenhaPref();toast('Tarefa fixa excluída');
 }
 function mgSetEnter(v){ mgP('enterEnvia',v) }
 function mgSetHoras(v){ mgP('horas',v) }
@@ -27394,6 +27442,19 @@ window.mgPintarMencoes  = mgPintarMencoes;
 .mg-dc-selo .p{width:5px;height:5px;border-radius:50%;background:#fff}
 .card-t .mg-dc-selo{margin:6px 0 0}
 #slide .slide-h .mg-dc-selo{margin-top:8px}
+
+/* campo de responsável + prazo do double check, antes da lista */
+.mg-dc-resp{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:2px 0 14px;font-size:12.5px}
+.mg-dc-resp .fl{font-size:11px;color:var(--muted);font-weight:600}
+.mg-dc-resp select.fld,.mg-dc-resp input.fld{width:auto;padding:5px 9px;font-size:12.5px}
+.mg-dc-resp-fixo{font-weight:700;color:var(--text);background:var(--card2);border:1px solid var(--line2);
+  border-radius:8px;padding:4px 10px}
+
+/* rótulo da tarefa fixa, antes do nome da demanda */
+.mg-tipo-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;
+  text-transform:uppercase;background:rgba(194,161,91,.16);color:var(--brass2);
+  border:1px solid rgba(194,161,91,.4);border-radius:6px;padding:1px 6px;
+  margin-right:6px;vertical-align:middle;white-space:nowrap}
 </style>
 <script>
 /* =====================================================================
@@ -27543,6 +27604,18 @@ function mgDCEstado(t){
   return {aguardando: implOk && faltam > 0,
           feitos: check.length - faltam, total: check.length};
 }
+/* a etapa terminou quando existe checklist e todo item dela foi conferido.
+   É o gatilho da tag "ETAPA DOUBLE CHECK" e da trava do responsável. */
+function mgDCCompleto(t){
+  const est = mgDCEstado(t);
+  return est.total > 0 && est.feitos === est.total;
+}
+/* uma chave só, para o gancho do toggleSub perceber qualquer mudança de selo
+   (virou "aguardando" ou virou "completo"), não só a de "aguardando". */
+function mgDCSeloEstadoChave(t){
+  if(mgDCCompleto(t)) return 'completo';
+  return mgDCEstado(t).aguardando ? 'aguardando' : '';
+}
 /* A checklist é do time. Cliente continua vendo as subtarefas que alguém
    escreveu à mão, como sempre viu, mas não a conferência interna: é
    procedimento nosso, não entrega dele. */
@@ -27554,9 +27627,10 @@ function mgDCVisiveis(t){
   return mgDCInterno() ? subs.filter(x => !(x && x.mgChave)) : subs;
 }
 function mgDCSeloHTML(t){
-  return mgDCEstado(t).aguardando
-    ? '<span class="mg-dc-selo"><span class="p"></span>Aguardando double check</span>'
-    : '';
+  const k = mgDCSeloEstadoChave(t);
+  if(k === 'completo') return '<span class="mg-dc-selo"><span class="p"></span>ETAPA DOUBLE CHECK</span>';
+  if(k === 'aguardando') return '<span class="mg-dc-selo"><span class="p"></span>Aguardando double check</span>';
+  return '';
 }
 
 /* no card do quadro, embaixo do nome */
@@ -27605,10 +27679,50 @@ function mgDCBotoesHTML(t){
       + ' title="' + (on ? 'Tirar' : 'Abrir') + ' a checklist de ' + esc(p.nome) + '">'
       + '<span class="pt"></span>' + esc(p.nome) + '</button>';
   }).join('');
-  return '<div class="mg-dc-cab"><span class="tt">☑ Subtarefas Implementação/Double Check</span>'
+  return '<div id="mg-dc-topo">'
+       + '<div class="mg-dc-cab"><span class="tt">☑ Subtarefas Implementação/Double Check</span>'
        + contagem + '</div>'
-       + '<div class="mg-dc-plats">' + botoes + '</div>';
+       + '<div class="mg-dc-plats">' + botoes + '</div>'
+       + mgDCRespHTML(t)
+       + '</div>';
 }
+
+/* Responsável e prazo da etapa de double check: UM campo por demanda, antes
+   da lista inteira — não por item, que é onde já existe responsável/data
+   para o que a pessoa escreve à mão. Só aparece quando existe checklist
+   (alguma plataforma ligada). O nome trava (vira texto, não select) assim
+   que a checklist termina: é a assinatura de quem conferiu, não deve dar
+   para reescrever depois. */
+function mgDCRespHTML(t){
+  if(!(t.plataformas||[]).length) return '';
+  const podeMexer = (typeof isAdmin === 'function') ? isAdmin() : false;
+  const travado = mgDCCompleto(t);
+  const gente = (typeof ASSIGNEE_OPTS !== 'undefined' && ASSIGNEE_OPTS) ? ASSIGNEE_OPTS : [];
+  const respoCampo = !podeMexer
+    ? '<span>' + esc(t.dc_responsavel || '—') + '</span>'
+    : travado
+      ? '<span class="mg-dc-resp-fixo" title="Trancado: a checklist já foi concluída">' + esc(t.dc_responsavel || '—') + '</span>'
+      : '<select class="fld" onchange="mgDCCampo(\'dc_responsavel\',this.value)">'
+        + '<option value="">— responsável —</option>'
+        + gente.map(n=>'<option '+(t.dc_responsavel===n?'selected':'')+'>'+esc(n)+'</option>').join('')
+        + ((t.dc_responsavel && gente.indexOf(t.dc_responsavel)<0) ? '<option selected>'+esc(t.dc_responsavel)+'</option>' : '')
+        + '</select>';
+  const prazoCampo = podeMexer
+    ? '<input class="fld" type="date" value="'+esc(t.dc_prazo||'')+'" onchange="mgDCCampo(\'dc_prazo\',this.value)">'
+    : '<span>' + (t.dc_prazo ? fmtDate(t.dc_prazo) : '—') + '</span>';
+  return '<div class="mg-dc-resp">'
+       + '<span class="fl">Responsável pelo double check</span>' + respoCampo
+       + '<span class="fl" style="margin-left:8px">Prazo</span>' + prazoCampo
+       + '</div>';
+}
+async function mgDCCampo(campo, valor){
+  const t = _curDetail(); if(!t) return;
+  const patch = {}; patch[campo] = valor || null;
+  const {error} = await sb.from('tasks').update(patch).eq('id', t.id);
+  if(error){ toast('Não deu para salvar'); console.error(error); return }
+  Object.assign(t, patch);
+}
+window.mgDCCampo = mgDCCampo;
 
 function mgDCCabecalhos(){
   const cx = document.getElementById('d-subs');
@@ -27645,7 +27759,7 @@ function mgDCCabecalhos(){
 function mgDCMontar(){
   if(mgDCInterno()) return;
   const cx = document.getElementById('d-subs');
-  if(!cx || cx.previousElementSibling && cx.previousElementSibling.classList.contains('mg-dc-plats')) {
+  if(!cx || cx.previousElementSibling && cx.previousElementSibling.id === 'mg-dc-topo') {
     mgDCCabecalhos(); return;
   }
   const t = (typeof TASKS !== 'undefined' && TASKS || []).find(x => x.id === DETAIL_ID);
@@ -27744,10 +27858,16 @@ if(typeof toggleSub === 'function'){
     const item = t && t.subtasks && t.subtasks[i];
     const mexeNoSelo = !!(item && (item.mgBloco === 'impl' || item.mgBloco === 'dc'
                                    || item.mgBloco === 'fim'));
-    const antes = t ? mgDCEstado(t).aguardando : false;
+    const antes = t ? mgDCSeloEstadoChave(t) : '';
     const r = _ts.apply(this, arguments);
     try{
-      if(mexeNoSelo && t && mgDCEstado(t).aguardando !== antes) render();
+      if(mexeNoSelo && t && mgDCSeloEstadoChave(t) !== antes){
+        render();
+        /* o bloco de responsável precisa refletir a trava (ou destravar) na
+           hora, sem esperar reabrir o card */
+        const respEl = document.querySelector('#slide .mg-dc-resp');
+        if(respEl) respEl.outerHTML = mgDCRespHTML(t);
+      }
     }catch(e){ console.warn('[double check · selo]', e) }
     return r;
   };
@@ -27779,6 +27899,8 @@ if(typeof renderDetailBody === 'function'){
 
 /* expostos para os testes */
 window.mgDCEstado      = mgDCEstado;
+window.mgDCCompleto    = mgDCCompleto;
+window.mgDCSeloEstadoChave = mgDCSeloEstadoChave;
 window.mgDCSincronizar = mgDCSincronizar;
 window.mgDCPlanejado   = mgDCPlanejado;
 window.MG_DC_PLATS     = MG_DC_PLATS;

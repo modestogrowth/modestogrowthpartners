@@ -3548,6 +3548,145 @@ ok('57d o que muda na memória chega à tela na sincronização seguinte, mesmo 
    repinta.depois === 'Título trocado só na memória' && repinta.voltou === repinta.antes,
    JSON.stringify(repinta));
 
+/* =====================================================================
+   58. Tarefas fixas — catálogo administrável
+   ===================================================================== */
+
+/* ---- 58. o catálogo aparece em Configurações e dá para criar, renomear e excluir ---- */
+const catalogo = await page.evaluate(async ()=>{
+  showView('settings'); await new Promise(r=>setTimeout(r,320));
+  mgIrPref('tipos'); await new Promise(r=>setTimeout(r,220));
+  const antes = TASK_TIPOS.map(x=>x.nome);
+  const inp = document.getElementById('tipo-new');
+  inp.value = 'Categoria de teste'; await addTaskTipo();
+  const criado = TASK_TIPOS.find(x=>x.nome==='Categoria de teste');
+  const _p = window.prompt; window.prompt = ()=>'Categoria renomeada';
+  await renameTaskTipo(criado.id, criado.nome);
+  const renomeado = TASK_TIPOS.find(x=>x.id===criado.id);
+  const _c = window.confirm; window.confirm = ()=>true;
+  await deleteTaskTipo(renomeado.id, renomeado.nome);
+  window.prompt = _p; window.confirm = _c;
+  const depois = TASK_TIPOS.map(x=>x.nome);
+  return {antes, criouComONomeCerto: !!criado, renomeouCerto: renomeado && renomeado.nome==='Categoria renomeada',
+          sumiuDepoisDeExcluir: !depois.includes('Categoria renomeada'), depois};
+});
+ok('58 a tela de Configurações cria, renomeia e exclui uma tarefa fixa',
+   catalogo.antes.includes('Otimização') && catalogo.antes.includes('UTM')
+   && catalogo.criouComONomeCerto && catalogo.renomeouCerto && catalogo.sumiuDepoisDeExcluir,
+   JSON.stringify(catalogo));
+
+/* ---- 58b. o tipo escolhido na criação aparece como rótulo antes do nome ---- */
+const comTipo = await page.evaluate(async ()=>{
+  openTaskModal(); await new Promise(r=>setTimeout(r,260));
+  document.getElementById('m-title').value = 'Demanda com tipo';
+  document.getElementById('m-tipo').value = 'UTM';
+  await saveTask(null);
+  const t = TASKS.find(x=>x.title==='Demanda com tipo');
+  await showView('tasks'); await new Promise(r=>setTimeout(r,320));
+  const card = document.querySelector('.card-t[data-id="'+t.id+'"] .tt');
+  await showView('list'); await new Promise(r=>setTimeout(r,320));
+  const linha = [...document.querySelectorAll('#v-list td')].find(td=>/Demanda com tipo/.test(td.textContent));
+  return {tipoSalvo: t.tipo, cardHTML: card ? card.innerHTML : '', linhaHTML: linha ? linha.innerHTML : ''};
+});
+ok('58b escolher uma tarefa fixa ao criar grava o tipo e mostra o rótulo antes do nome, no card e na lista',
+   comTipo.tipoSalvo === 'UTM'
+   && /mg-tipo-tag">UTM<\/span>[\s\S]*Demanda com tipo/.test(comTipo.cardHTML)
+   && /mg-tipo-tag">UTM<\/span>[\s\S]*Demanda com tipo/.test(comTipo.linhaHTML),
+   JSON.stringify(comTipo).slice(0,300));
+
+/* ---- 58c. no detalhe, o tipo é um seletor rápido para admin, e rótulo fixo para cliente ---- */
+const tipoDetalhe = await page.evaluate(async ()=>{
+  const t = TASKS.find(x=>x.title==='Demanda com tipo');
+  await openDetail(t.id); await new Promise(r=>setTimeout(r,320));
+  const sel = document.getElementById('d-tipo');
+  const valorAntes = sel ? sel.value : null;
+  sel.value = 'Report'; await quickField('tipo','Report');
+  const t2 = TASKS.find(x=>x.id===t.id);
+  return {valorAntes, salvouNovoTipo: t2.tipo === 'Report'};
+});
+ok('58c o campo Tarefa fixa no detalhe salva na hora, sem precisar de "Salvar alterações"',
+   tipoDetalhe.valorAntes === 'UTM' && tipoDetalhe.salvouNovoTipo,
+   JSON.stringify(tipoDetalhe));
+
+/* =====================================================================
+   59. Double check — responsável, prazo e a etapa concluída
+   ===================================================================== */
+
+/* ---- 59. antes da lista, um campo só de responsável e prazo (não por item) ---- */
+const dcResp = await page.evaluate(async ()=>{
+  const t = TASKS.find(x=>x.id==='t-dc');
+  t.plataformas = []; t.dc_responsavel = null; t.dc_prazo = null;
+  mgDCSincronizar(t);
+  await openDetail('t-dc'); await new Promise(r=>setTimeout(r,320));
+  const semPlataforma = !document.querySelector('#slide .mg-dc-resp');
+  await mgDCAlternar('meta'); await new Promise(r=>setTimeout(r,420));
+  const bloco = document.querySelector('#slide .mg-dc-resp');
+  const sel = bloco ? bloco.querySelector('select.fld') : null;
+  const data = bloco ? bloco.querySelector('input[type=date]') : null;
+  if(sel){ sel.value = 'Elias'; sel.dispatchEvent(new Event('change')) }
+  if(data){ data.value = '2026-10-05'; data.dispatchEvent(new Event('change')) }
+  await new Promise(r=>setTimeout(r,450));
+  const t2 = TASKS.find(x=>x.id==='t-dc');
+  /* o campo fica ANTES da lista de subtarefas, não misturado nela */
+  const ordem = bloco && document.getElementById('d-subs')
+    ? (bloco.compareDocumentPosition(document.getElementById('d-subs')) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    : false;
+  return {semPlataforma, temCampoUnico: !!bloco, temSelect: !!sel, temData: !!data,
+          respSalvo: t2.dc_responsavel, prazoSalvo: t2.dc_prazo, antesDaLista: ordem};
+});
+ok('59 sem plataforma nenhuma o campo não aparece; ligando uma, aparece um responsável e um prazo, antes da lista, e salva',
+   dcResp.semPlataforma && dcResp.temCampoUnico && dcResp.temSelect && dcResp.temData
+   && dcResp.respSalvo === 'Elias' && dcResp.prazoSalvo === '2026-10-05' && dcResp.antesDaLista,
+   JSON.stringify(dcResp));
+
+/* ---- 59b. concluir a checklist trava o nome e troca o selo para "ETAPA DOUBLE CHECK" ---- */
+const dcCompleto = await page.evaluate(async ()=>{
+  const t = TASKS.find(x=>x.id==='t-dc');
+  const antesTravado = !!document.querySelector('#slide .mg-dc-resp-fixo');
+  /* mira o último item de CHECK de verdade (bloco dc/fim), não o último
+     índice do array: testes anteriores deixaram itens manuais no fim da
+     lista (mgDCSincronizar sempre concatena eles depois dos automáticos).
+     Marca todo o resto do check direto no objeto (sem passar pelo gancho);
+     só o último passa por toggleSub, de propósito, para ser ele quem
+     completa a lista e dispara o gancho que redesenha selo e campo de resp */
+  const idxCheck = t.subtasks.map((x,i)=>i).filter(i=>{
+    const b = t.subtasks[i].mgBloco; return b==='dc' || b==='fim';
+  });
+  const iUltimo = idxCheck[idxCheck.length-1];
+  idxCheck.forEach(i=>{ if(i!==iUltimo) t.subtasks[i].done = true });
+  toggleSub(iUltimo);
+  await new Promise(r=>setTimeout(r,420));
+  const travadoAgora = document.querySelector('#slide .mg-dc-resp-fixo');
+  const seloDetalhe = (document.querySelector('#slide .slide-h .mg-dc-selo')||{}).textContent || '';
+  await showView('board'); await new Promise(r=>setTimeout(r,420));
+  const card = document.querySelector('.card-t[data-id="t-dc"]');
+  const seloCard = card ? (card.querySelector('.mg-dc-selo')||{}).textContent || '' : '';
+  return {antesTravado, completo: mgDCCompleto(t),
+          travadoAgora: travadoAgora ? travadoAgora.textContent : null,
+          seloDetalhe, seloCard};
+});
+ok('59b concluir toda a checklist trava o nome do responsável e troca o selo para ETAPA DOUBLE CHECK',
+   !dcCompleto.antesTravado && dcCompleto.completo
+   && dcCompleto.travadoAgora === 'Elias'
+   && /ETAPA DOUBLE CHECK/.test(dcCompleto.seloDetalhe)
+   && /ETAPA DOUBLE CHECK/.test(dcCompleto.seloCard),
+   JSON.stringify(dcCompleto));
+
+/* ---- 59c. reabrir um item da checklist destrava o campo de novo ---- */
+const dcReaberto = await page.evaluate(async ()=>{
+  const t = TASKS.find(x=>x.id==='t-dc');
+  const iCheck = t.subtasks.findIndex(x=>x.mgBloco==='dc');
+  toggleSub(iCheck);   /* desmarca um item do double check */
+  await new Promise(r=>setTimeout(r,420));
+  const bloco = document.querySelector('#slide .mg-dc-resp');
+  const sel = bloco ? bloco.querySelector('select.fld') : null;
+  return {completo: mgDCCompleto(t), voltouASerSelect: !!sel,
+          nomeMantido: sel ? [...sel.options].some(o=>o.selected && o.textContent==='Elias') : false};
+});
+ok('59c desmarcar um item depois de concluído destrava o campo, sem perder o nome já escolhido',
+   !dcReaberto.completo && dcReaberto.voltouASerSelect && dcReaberto.nomeMantido,
+   JSON.stringify(dcReaberto));
+
 /* ---- resultado ---- */
 const larg = Math.max(...res.map(r=>r.t.length));
 console.log('');

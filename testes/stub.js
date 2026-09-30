@@ -45,7 +45,13 @@
        dias_fechados:3, dias_no_mes:30, receita:60000, pedidos:30, conversoes:38, roas:4.0, roas_piso:3.5,
        canais:[{canal:'Meta Ads', investido:9000},{canal:'Google Ads', investido:6000}]}],
     mgp_pesquisas:[], mgp_pesquisas_interno:[], mgp_cip_textos:[], email_fila:[],
-    assistant_messages:[], assistant_actions:[]
+    assistant_messages:[], assistant_actions:[],
+    task_tipos:[
+      {id:'tt-1', nome:'Otimização', ordem:1},
+      {id:'tt-2', nome:'Report', ordem:2},
+      {id:'tt-3', nome:'Implementação', ordem:3},
+      {id:'tt-4', nome:'UTM', ordem:4},
+    ]
   };
   /* persiste entre recargas, para dar sentido ao teste de persistência:
      o app precisa buscar do backend de novo, não do estado em memória */

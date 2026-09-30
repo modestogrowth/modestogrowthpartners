@@ -224,7 +224,7 @@
      de cabeçalho HTTP, que só o servidor manda. O Pages já força HTTPS e
      envia HSTS quando o domínio está com "Enforce HTTPS" ligado. -->
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://eeqaabwsheaiwyhujcqj.supabase.co wss://eeqaabwsheaiwyhujcqj.supabase.co; frame-src 'self' data: blob:; worker-src 'self' blob:; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://vwhpjdesnszxbbvvwqvc.supabase.co wss://vwhpjdesnszxbbvvwqvc.supabase.co; frame-src 'self' data: blob:; worker-src 'self' blob:; upgrade-insecure-requests">
 <title>Modesto Tasks — Gestão de Demandas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -1009,8 +1009,8 @@ body.theme-dark .side-nav .nav-i.on{color:#1a1a18!important}
    CONFIG — cole aqui a URL e a chave anon do seu Supabase (mesmo do Portal)
    Chave anon é pública (pode ficar no código). Nunca use a service_role aqui.
    ===================================================================== */
-const SUPABASE_URL  = 'https://eeqaabwsheaiwyhujcqj.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_AIjaigmy_i-aKNV1zkC8NQ_3-ZmQLfi';
+const SUPABASE_URL  = 'https://vwhpjdesnszxbbvvwqvc.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_hQzZLmYH0WkW5ACXv0gAJw_mpov82uO';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -2204,7 +2204,7 @@ async function renderEquipe(){
     <div class="set-sec" style="max-width:720px">
       <h3>Adicionar membro</h3>
       <div class="desc">Por segurança, novos logins são criados no painel do Supabase (Authentication → Add user). Depois, o papel é definido aqui.</div>
-      <a class="mini-btn" href="https://supabase.com/dashboard/project/eeqaabwsheaiwyhujcqj/auth/users" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">Abrir Authentication →</a>
+      <a class="mini-btn" href="https://supabase.com/dashboard/project/vwhpjdesnszxbbvvwqvc/auth/users" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">Abrir Authentication →</a>
     </div>
     <div class="clist">
       ${list.map(u=>`<div class="crow">
@@ -4431,7 +4431,7 @@ async function mgVerificarAuth(){
   return MG_AUTH;
 }
 
-const MG_LINK_AUTH = 'https://supabase.com/dashboard/project/eeqaabwsheaiwyhujcqj/auth/providers';
+const MG_LINK_AUTH = 'https://supabase.com/dashboard/project/vwhpjdesnszxbbvvwqvc/auth/providers';
 
 /* aviso montado conforme o que estiver errado */
 function mgAlertaAcesso(){
@@ -6608,7 +6608,7 @@ mgDefinirIcone();
    o que houve e apontar exatamente onde religar.
    ===================================================================== */
 
-const MG_LINK_EMAIL = 'https://supabase.com/dashboard/project/eeqaabwsheaiwyhujcqj/auth/providers';
+const MG_LINK_EMAIL = 'https://supabase.com/dashboard/project/vwhpjdesnszxbbvvwqvc/auth/providers';
 
 /* ---- 1. mensagem certa na tela de entrada ---- */
 (function(){
@@ -9363,7 +9363,7 @@ function mgAvisoPlanoFalhou(motivo){
     <span><b>O nome foi salvo, mas o plano de mídia não.</b><br>
     ${motivo}<br>
     Rode o <code>supabase-adicao-34.sql</code> — e confirme que está no projeto
-    <code>eeqaabwsheaiwyhujcqj</code>, que é o que esta plataforma lê.</span>
+    <code>vwhpjdesnszxbbvvwqvc</code>, que é o que esta plataforma lê.</span>
   </div>`;
 }
 
@@ -9384,7 +9384,7 @@ function mgAvisoPlanoFalhou(motivo){
         <span><b>A coluna <code>plano_midia</code> não existe neste banco.</b><br>
         Por isso nenhuma empresa aparece aqui, mesmo marcando a caixa em Clientes.
         Rode o <code>supabase-adicao-34.sql</code> no projeto
-        <code>eeqaabwsheaiwyhujcqj</code>.</span></div>`);
+        <code>vwhpjdesnszxbbvvwqvc</code>.</span></div>`);
     }
     return r;
   };
@@ -10262,7 +10262,7 @@ function mgAvisoFalta(oQue, arquivo){
     <b>${esc(oQue)} ainda não existe neste banco.</b>
     <ol class="passos">
       <li>Abra o Supabase e confirme que está no projeto
-          <code>eeqaabwsheaiwyhujcqj</code> — é o que esta plataforma lê.</li>
+          <code>vwhpjdesnszxbbvvwqvc</code> — é o que esta plataforma lê.</li>
       <li>Rode o <code>${esc(arquivo)}</code> no SQL Editor.</li>
       <li>Volte aqui e atualize a página.</li>
     </ol>
@@ -17373,7 +17373,7 @@ renderEquipe = async function(){
       <div class="desc">Por segurança, novos logins são criados no painel do Supabase
         (Authentication → Add user). Depois, o papel e a empresa são definidos aqui.</div>
       <a class="mini-btn" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block"
-         href="https://supabase.com/dashboard/project/eeqaabwsheaiwyhujcqj/auth/users">Abrir o Supabase</a>
+         href="https://supabase.com/dashboard/project/vwhpjdesnszxbbvvwqvc/auth/users">Abrir o Supabase</a>
       <div class="mg-eq-dica">
         Clique na <b>foto</b> para trocar a imagem de qualquer pessoa, e no <b>nome</b> para corrigi-lo.
       </div>
